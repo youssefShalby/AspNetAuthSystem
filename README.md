@@ -6,7 +6,7 @@ feel free to download or clone the repo and edit in it
 
 ## How Use The App
 #### *The App Has the follwoing endpoints in the Image*
-![](Images/snapshot00.png)
+![](Images/snapshot.png)
 
 1. ### Regsiter
    the *register* endpoint work to add new user in the system, and any user will registred from this endpoint will take 'User' role.
@@ -67,6 +67,9 @@ feel free to download or clone the repo and edit in it
         "password": "jo0123jo0@YYAA"
       }
       ```
+10. ### Resend Email Confirmation code
+    this endpoint will take from you the email of user, and then will resend the the confirmation OTP code in the email inbox.
+    this endpoint generate another OTP code and new Activation token and update the created last one by new OTP code and token 
 
     ##### finally, you can add additional logic for the system to make it powerfull... happy code ❤️
       
