@@ -169,7 +169,7 @@ public class UserService : IUserService
 
 		string url = $"{_configuration.GetValue<string>("AppUrl")}/ResetPassword?email={email}&token={token}";
 		string emailBody = _emailService.ResetPasswordEmailBody(url);
-		var sended = _emailService.SendEmail(email, "Reset Password", emailBody);
+		var sended = await _emailService.SendEmailAsync(email, "Reset Password", emailBody, true);
 		if(!sended.IsSuccessed)
 		{
 			return sended;
@@ -197,7 +197,7 @@ public class UserService : IUserService
 		var result = await _userManager.ResetPasswordAsync(user, originalToken, model.NewPassword);
 		if(!result.Succeeded)
 		{
-			return new CommonResponse("cannot change password for now, try again later", false);
+			return new CommonResponse("cannot change password for now because the link expired, order new one", false);
 		}
 		return new CommonResponse("password changes success", true);
 		
@@ -247,6 +247,39 @@ public class UserService : IUserService
 		return new CommonResponse("Account Deleted.. bye bye", true);
 	}
 
-	
+	public async Task<CommonResponse> ResendConfirmationEmail(string email)
+	{
+		var user = await _userManager.FindByEmailAsync(email);
+		if (user is null)
+		{
+			return new CommonResponse("the email is not exist..!!", false);
+		}
+
+		string verificationCode = _emailService.GenerateOTPCode();
+		string emailBody = _emailService.GetConfirmationEmailBody(verificationCode, email);
+
+		var userClaims = await _userManager.GetClaimsAsync(user);
+		var generateToken = _tokenService.CreateToken(userClaims.ToList(), DateTime.Now.AddMinutes(5));
+		string token = new JwtSecurityTokenHandler().WriteToken(generateToken);
+
+		user.ConfirmEmailCode = verificationCode;
+		user.ActivationToken = token;
+
+		var updated = await _userManager.UpdateAsync(user);
+		if (!updated.Succeeded)
+		{
+			return new CommonResponse("cannot resend the email confirmation..!!", true);
+		}
+
+		var sended = await _emailService.SendEmailAsync(email, "Confirm Email", emailBody, true);
+		if (!sended.IsSuccessed)
+		{
+			return sended;
+		}
+
+		return new CommonResponse("the email resended success..!!", true);
+
+	}
+
 
 }

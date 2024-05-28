@@ -65,8 +65,8 @@ public class HandlerService : IHandlerService
 
 		#region Get Ready to send email & Create Token & create Token Claims
 
-		string verificationCode = _emailService.GenerateOtpCode();
-		string emailBody = _emailService.VerficationCodeEmailBody(verificationCode);
+		string verificationCode =  _emailService.GenerateOTPCode();
+		string emailBody = _emailService.GetConfirmationEmailBody(verificationCode, model.FullName);
 
 		List<Claim> tokenClaims = new List<Claim>()
 		{
@@ -101,7 +101,7 @@ public class HandlerService : IHandlerService
 		await _userManager.AddToRolesAsync(AppUser, otherRoles);
 
 		//> send confirmation email
-		var sended = _emailService.SendEmail(AppUser.Email, "Confirm Email", emailBody);
+		var sended = await _emailService.SendEmailAsync(AppUser.Email, "Confirm Email", emailBody, true);
 		if(!sended.IsSuccessed)
 		{
 			return sended;

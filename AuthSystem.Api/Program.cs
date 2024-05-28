@@ -9,6 +9,12 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+var smtpSettings = builder.Configuration.GetSection("SmtpSettings").Get<SmtpSettings>();
+builder.Services.AddSingleton(smtpSettings);
+
+builder.Services.AddHttpContextAccessor();
+
+
 string connectionString = builder.Configuration.GetConnectionString("AuthSystem");
 builder.Services.AddDbContext<AppDbContext>(option => option.UseSqlServer(connectionString));
 
@@ -54,7 +60,7 @@ result.AddJwtBearer(option =>
 	option.RequireHttpsMetadata = false;
 
 	//> create the Key, will call function later
-	var theSecretKey = builder.Configuration["JWT:ApiSecretKey"];
+	var theSecretKey = builder.Configuration["JWT:TokenKey"];
 	var keyInBytes = Encoding.ASCII.GetBytes(theSecretKey);
 	var key = new SymmetricSecurityKey(keyInBytes);
 

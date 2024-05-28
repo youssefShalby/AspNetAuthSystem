@@ -10,4 +10,6 @@ public interface IUserService
 	Task<CommonResponse> ResetPasswordAsync(ResetPasswordDto model, string token);
 	Task<CommonResponse> LogoutAsync();
 	Task<CommonResponse> RemoveAccountAsync(RemoveAccountDto model);
+
+	Task<CommonResponse> ResendConfirmationEmail(string email);
 }

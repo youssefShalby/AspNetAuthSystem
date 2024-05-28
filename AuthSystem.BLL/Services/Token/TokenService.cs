@@ -36,7 +36,7 @@ public class TokenService : ITokenService
 
 	public string GetKeyAsString()
 	{
-		return _configuration.GetValue<string>("Jwt:ApiSecretKey");
+		return _configuration.GetValue<string>("Jwt:TokenKey");
 	}
 
 	public JwtSecurityToken ReadToken(string token)

@@ -115,4 +115,20 @@ public class AuthController : ControllerBase
 		}
 		return Ok(result); //> 200
 	}
+
+	[HttpPost("ResendConfirmationEmail/{email}")]
+	public async Task<ActionResult> ResendConfirmationEmail(string email)
+	{
+		if (!ModelState.IsValid)
+		{
+			return BadRequest(ModelState);
+		}
+
+		var result = await _userService.ResendConfirmationEmail(email);
+		if (!result.IsSuccessed)
+		{
+			return BadRequest(result); //> 400
+		}
+		return Ok(result); //> 200
+	}
 }

@@ -1,104 +1,81 @@
 ﻿
+
+
+using MimeKit;
+using MailKit.Net.Smtp;
+
+
 namespace E_Commerce.BLL.Services;
 
 public class EmailService : IEmailService
 {
-    private readonly IConfiguration _configuration;
-	public EmailService(IConfiguration configuration)
+	private readonly SmtpSettings _smtpSettings;
+    public EmailService(SmtpSettings smtpSettings)
+    {
+        _smtpSettings = smtpSettings;
+    }
+
+	public async Task<CommonResponse> SendEmailAsync(string toEmail, string subject, string body, bool isHtml = false)
 	{
-		_configuration = configuration;
+		var emailMessage = new MimeMessage();
+		emailMessage.From.Add(new MailboxAddress(_smtpSettings.SenderName, _smtpSettings.SenderEmail));
+		emailMessage.To.Add(new MailboxAddress("", toEmail));
+		emailMessage.Subject = subject;
+
+		var bodyBuilder = new BodyBuilder();
+		if (isHtml)
+		{
+			bodyBuilder.HtmlBody = body;
+		}
+		else
+		{
+			bodyBuilder.TextBody = body;
+		}
+
+		emailMessage.Body = bodyBuilder.ToMessageBody();
+		using (var client = new SmtpClient())
+		{
+			try
+			{
+				await client.ConnectAsync(_smtpSettings.Server, _smtpSettings.Port, MailKit.Security.SecureSocketOptions.StartTls);
+				await client.AuthenticateAsync(_smtpSettings.Username, _smtpSettings.Password);
+				await client.SendAsync(emailMessage);
+				await client.DisconnectAsync(true);
+				return new CommonResponse("the email sended..!!", true);
+			}
+			catch (Exception ex)
+			{
+				return new CommonResponse("cannot send the email right now..!!", false);
+			}
+		}
 	}
 
-	public CommonResponse SendEmail(string toEmail, string subject, string body)
-	{
-		string senderEmail = _configuration["Email:senderEmail"];
-		string senderPassword = _configuration["Email:senderPasswordKey"];
 
-		MailMessage message = new MailMessage();
-		message.From = new MailAddress(senderEmail);
-		message.To.Add(new MailAddress(toEmail));
-		message.Subject = subject;
-		message.Body = body;
-		message.IsBodyHtml = true;
-
-		SmtpClient smtpClient = new SmtpClient("smtp.gmail.com", 587);
-		smtpClient.Credentials = new NetworkCredential(senderEmail, senderPassword);
-        smtpClient.EnableSsl = true;
-		try
-		{
-			smtpClient.Send(message);
-			return new CommonResponse("Message Set", true);
-		}
-		catch (Exception ex)
-		{
-			return new CommonResponse($"Message sent fail, ${ex.Message}", false);
-		}
-	}
-	public string GenerateOtpCode()
+	public string GenerateOTPCode()
 	{
 		return new Random().Next(1000, 9999).ToString();
 	}
 
-	public string VerficationCodeEmailBody(string code)
+	public string GetConfirmationEmailBody(string otp, string userName = "User")
 	{
-		return @$"<!DOCTYPE html>
-                <html lang=""en"">
-                <head>
-                    <meta charset=""UTF-8"">
-                    <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
-                    <title>Email Verification</title>
-                    <style>
-                        body {{
-                            font-family: Arial, sans-serif;
-                            background-color: #f2f2f2;
-                            margin: 0;
-                            padding: 0;
-                        }}
-
-                        .container {{
-                            max-width: 600px;
-                            margin: 20px auto;
-                            background-color: #fff;
-                            border-radius: 5px;
-                            padding: 20px;
-                            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-                        }}
-
-                        h1 {{
-                            color: #333;
-                        }}
-
-                        b,p {{
-                            color: #333;
-                            margin-bottom: 20px;
-                        }}
-
-                        .verification-code {{
-                            font-size: 24px;
-                            font-weight: bold;
-                            color: #007bff;
-                            margin-bottom: 20px;
-                        }}
-
-                        .footer {{
-                            margin-top: 20px;
-                            text-align: center;
-                            color: #777;
-                        }}
-                    </style>
-                </head>
-                <body>
-                    <div class=""container"">
-                        <h1>Email Verification</h1>
-                        <b>Thank you for signing up! To complete your registration, please use the following verification code:</b>
-                        <p class=""verification-code"">{code}</p>
-                        <b>If you did not request this code, please ignore this email.</b>
-                        <div class=""footer"">
-                            <p>This email was sent automatically. Please do not reply.</p>
-                        </div>
-                    </div>
-                </body>
-                </html>";
+		return @$"
+				<!DOCTYPE html>
+				<html lang=""en"">
+				<head>
+					<meta charset=""UTF-8"">
+					<title>Confirmation Email</title>
+				</head>
+				<body>
+					<p>Hi {userName},</p>
+					<p>Thank you for signing up with Company Name. To complete your account verification, enter the following One-Time Password (OTP) code:</p>
+					<p style=""font-weight: bold; font-size: 16px;"">{otp}</p>
+					<p>This code is valid for [duration] minutes. Please do not share this code with anyone.</p>
+					<p>If you did not initiate this request, please disregard this email and contact our support team.</p>
+					<p>Sincerely,</p>
+					<p>E-CommerceApp</p>
+				</body>
+				</html>
+				";
 	}
 	public string ResetPasswordEmailBody(string url)
 	{

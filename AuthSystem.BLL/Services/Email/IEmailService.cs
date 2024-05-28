@@ -1,11 +1,12 @@
 ﻿
-
 namespace E_Commerce.BLL.Services;
 
 public interface IEmailService
 {
-	CommonResponse SendEmail(string toEmail, string subject, string body);
+	string GenerateOTPCode();
+	Task<CommonResponse> SendEmailAsync(string toEmail, string subject, string body, bool isHtml = false);
+	string GetConfirmationEmailBody(string otp, string userName = "User");
 	string ResetPasswordEmailBody(string url);
-	string VerficationCodeEmailBody(string code);
-	string GenerateOtpCode();
+
+
 }
