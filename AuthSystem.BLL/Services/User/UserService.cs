@@ -72,7 +72,7 @@ public class UserService : IUserService
 		IdentityResult result = await _userManager.UpdateAsync(user);
 		if(!result.Succeeded)
 		{
-			var errors = _handlerService.GetErrorsOfIdentityResult(result.Errors);
+			var errors = Helper.GetErrorsOfIdentityResult(result.Errors);
 			return new CommonResponse("cannot confirm email right now, try again later", false, errors);
 		}
 
@@ -89,7 +89,7 @@ public class UserService : IUserService
 		}
 
 		//> save login token in the cookie
-		int added = _tokenService.SaveTokenInCookie(loginToken);
+		int added = _tokenService.SaveTokenInCookie(loginToken, user.Id);
 		if(added == -1)
 		{
 			return new CommonResponse("email confirmed success, but cannot loging you in automatically, you can login now", true);
@@ -99,13 +99,7 @@ public class UserService : IUserService
 
 	public async Task<CommonResponse> LoginAsync(LoginDto model)
 	{
-		//> check if there is login token in cookie or not
-		var httpContext = _httpContextAccessor.HttpContext;
-		var checkLoginToken = httpContext?.Request.Cookies.FirstOrDefault(TK => TK.Key == "loginToken");
-		if (checkLoginToken?.Value is not null)
-		{
-			return new CommonResponse("user already loged in", false);
-		}
+		
 
 		//> check email is true and exist
 		ApplicationUser user = await _userManager.FindByEmailAsync(model.Email);
@@ -114,8 +108,17 @@ public class UserService : IUserService
 			return new CommonResponse("Email Not Found..!", false);
 		}
 
+		//> check if there is login token in cookie or not
+		var httpContext = _httpContextAccessor.HttpContext;
+		var spliceId = Helper.GetFirstFiveChardsFromId(user.Id);
+		var checkLoginToken = httpContext?.Request.Cookies.FirstOrDefault(TK => TK.Key == $"loginToken-{spliceId}");
+		if (checkLoginToken?.Value is not null)
+		{
+			return new CommonResponse("user already loged in", false);
+		}
+
 		//> check email is confirmed or not, if not return id to confirm it
-		if(!user.EmailConfirmed)
+		if (!user.EmailConfirmed)
 		{
 			var verificationModel = new VerificationCodeDto(user.Id);
 			return new CommonResponse("email not confirmed, please confirm it then login", false, null!, verificationModel.UserId);
@@ -141,7 +144,7 @@ public class UserService : IUserService
 		DateTime expireTime = _tokenService.GetExpirationTimeOfToken(token);
 
 		//> save the token in the cookie
-		int added = _tokenService.SaveTokenInCookie(token);
+		int added = _tokenService.SaveTokenInCookie(token, user.Id);
 		if(added == -1)
 		{
 			return new CommonResponse("login success, but cannot save data in your browser for now", true);

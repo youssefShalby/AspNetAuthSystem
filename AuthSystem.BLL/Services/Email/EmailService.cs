@@ -45,7 +45,7 @@ public class EmailService : IEmailService
 			}
 			catch (Exception ex)
 			{
-				return new CommonResponse("cannot send the email right now..!!", false);
+				return new CommonResponse($"cannot send the email right now because: {ex.Message}", false);
 			}
 		}
 	}

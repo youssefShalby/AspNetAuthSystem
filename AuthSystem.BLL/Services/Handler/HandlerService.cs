@@ -14,16 +14,6 @@ public class HandlerService : IHandlerService
 		_tokenService = tokenService;
 	}
 
-	public List<string> GetErrorsOfIdentityResult(IEnumerable<IdentityError> errors)
-	{
-		List<string> errorResult = new List<string>(5);
-		foreach (var error in errors)
-		{
-			errorResult.Add(error.Description ?? "NA");
-		}
-		return errorResult;
-	}
-
 	public async Task<CommonResponse> RegisterHandlerAsync(RegisterUserDto model, string mainRole, params string[] otherRoles)
 	{
 
@@ -92,7 +82,7 @@ public class HandlerService : IHandlerService
 		IdentityResult result = await _userManager.CreateAsync(AppUser, model.Password);
 		if(!result.Succeeded)
 		{
-			var errors = GetErrorsOfIdentityResult(result.Errors);
+			var errors = Helper.GetErrorsOfIdentityResult(result.Errors);
 			return new CommonResponse("cannot create User", false, errors);
 		}
 

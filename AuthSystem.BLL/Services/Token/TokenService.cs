@@ -19,6 +19,7 @@ public class TokenService : ITokenService
 			issuer: _configuration["JWT:Issuer"],
 			audience: _configuration["JWT:Audiences"],
 			notBefore: DateTime.Now,
+			claims: claims,
 			expires: expireationTime,
 			signingCredentials: GetCredentials()
 			);
@@ -84,7 +85,7 @@ public class TokenService : ITokenService
 		return new JwtSecurityTokenHandler().WriteToken(generateToken);
 	}
 
-	public int SaveTokenInCookie(string token)
+	public int SaveTokenInCookie(string token, string id)
 	{
 		//> get HttpContext from the Service
 		var httpContext = _httpContextAccessor.HttpContext;
@@ -96,7 +97,9 @@ public class TokenService : ITokenService
 			Expires = GetExpirationTimeOfToken(token)
 		};
 
-		httpContext.Response.Cookies.Append("loginToken", token, cookieOption);
+		var spliceId = Helper.GetFirstFiveChardsFromId(id);
+
+		httpContext.Response.Cookies.Append($"loginToken-{spliceId}", token, cookieOption);
 		return 0;
 	}
 }

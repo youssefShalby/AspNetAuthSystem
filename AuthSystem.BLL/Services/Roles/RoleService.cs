@@ -24,7 +24,7 @@ public class RoleService : IRoleService
 		IdentityResult result = await _roleManager.CreateAsync(newRole);
 		if (!result.Succeeded)
 		{
-			var errors = _handlerService.GetErrorsOfIdentityResult(result.Errors);
+			var errors = Helper.GetErrorsOfIdentityResult(result.Errors);
 			return new CommonResponse("create role fail", false, errors);
 		}
 
@@ -42,7 +42,7 @@ public class RoleService : IRoleService
 		var result = await _roleManager.DeleteAsync(role);
 		if(!result.Succeeded)
 		{
-			var errors = _handlerService.GetErrorsOfIdentityResult(result.Errors);
+			var errors = Helper.GetErrorsOfIdentityResult(result.Errors);
 			return new CommonResponse("Cannot delete Role..!!", false, errors);
 		}
 		return new CommonResponse("Role Deleted..", true);
