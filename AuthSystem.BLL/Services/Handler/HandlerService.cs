@@ -1,6 +1,6 @@
 ﻿
 
-namespace E_Commerce.BLL.Services;
+namespace AuthSystem.BLL.Services;
 
 public class HandlerService : IHandlerService
 {

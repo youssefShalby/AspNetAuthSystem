@@ -1,11 +1,11 @@
 ﻿global using Microsoft.AspNetCore.Identity;
 global using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
-global using E_Commerce.DAL.DomainModels;
+global using AuthSystem.DAL.DomainModels;
 global using Microsoft.EntityFrameworkCore;
-global using E_Commerce.DAL.ModelsConfigurations;
+global using AuthSystem.DAL.ModelsConfigurations;
+global using AuthSystem.DAL.Data;
 global using Microsoft.EntityFrameworkCore.Metadata.Builders;
 global using System.ComponentModel.DataAnnotations;
-global using E_Commerce.DAL.Data;
 global using System.Linq.Expressions;
 global using Microsoft.Extensions.Configuration;
 global using System.Text.Json;

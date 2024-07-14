@@ -1,3 +1,6 @@
+
+using AuthSystem.BLL.Settings;
+
 var builder = WebApplication.CreateBuilder(args);
 
 #region Services
@@ -12,6 +15,9 @@ builder.Services.AddSwaggerGen();
 var smtpSettings = builder.Configuration.GetSection("SmtpSettings").Get<SmtpSettings>();
 builder.Services.AddSingleton(smtpSettings);
 
+var JWTOptions = builder.Configuration.GetSection("JWT").Get<JWT>();
+builder.Services.AddSingleton(JWTOptions);
+
 builder.Services.AddHttpContextAccessor();
 
 
@@ -22,6 +28,8 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IHandlerService, HandlerService>();
 builder.Services.AddScoped<IRoleService, RoleService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddScoped<IRefreshTokenService, TokenService>();
+builder.Services.AddScoped<IRefreshTokenRepo, RefreshTokenRepo>();
 builder.Services.AddScoped<IUserService, UserService>();
 
 builder.Services.AddHttpContextAccessor();
@@ -94,6 +102,8 @@ if (app.Environment.IsDevelopment())
 	app.UseSwagger();
 	app.UseSwaggerUI();
 }
+
+app.UseMiddleware<ExceptionHandlerMiddleware>();
 
 app.UseHttpsRedirection();
 

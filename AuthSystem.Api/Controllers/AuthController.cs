@@ -1,15 +1,19 @@
 ﻿
 
-namespace E_Commerce.API.Controllers;
+namespace AuthSystem.API.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
 public class AuthController : ControllerBase
 {
 	private readonly IUserService _userService;
-    public AuthController(IUserService userService)
+	private readonly IRefreshTokenService _refreshTokenService;
+	private readonly ITokenService _tokenService;
+    public AuthController(IUserService userService, IRefreshTokenService refreshTokenService, ITokenService tokenService)
     {
 		_userService = userService;
+		_refreshTokenService = refreshTokenService;
+		_tokenService = tokenService;
     }
 
 	[HttpPost("Register")]
@@ -40,7 +44,7 @@ public class AuthController : ControllerBase
 		var result = await _userService.ConfirmEmailAsync(model);
 		if (result.IsSuccessed)
 		{
-			return Ok(result);
+			return Ok(result.AdditionalInfo);
 		}
 		return BadRequest(result);
 	}
@@ -95,7 +99,19 @@ public class AuthController : ControllerBase
 		return Ok(result); //> 200
 	}
 
-	[HttpPost("Logout")]
+    [HttpGet("RefreshToken")]
+    public async Task<ActionResult<CommonResponse>> RefreshToken()
+    {
+        return await _refreshTokenService.RefreshToken();
+    }
+
+    [HttpGet("RevokeRefreshToken/{token}")]
+    public async Task<ActionResult<CommonResponse>> RevokeRefreshToken([FromRoute]string token)
+    {
+        return await _refreshTokenService.RevokeRefreshTokenAsync(token);
+    }
+
+    [HttpPost("Logout")]
 	public async Task<ActionResult> Logout()
 	{
 		return Ok(await _userService.LogoutAsync());

@@ -1,17 +1,24 @@
 ﻿
 
-namespace E_Commerce.BLL.Services;
+using AuthSystem.BLL.Settings;
 
-public class TokenService : ITokenService
+namespace AuthSystem.BLL.Services;
+
+public class TokenService : ITokenService, IRefreshTokenService
 {
 	private readonly IConfiguration _configuration;
 	private readonly UserManager<ApplicationUser> _userManager;
 	private readonly IHttpContextAccessor _httpContextAccessor;
-	public TokenService(IConfiguration configuration, UserManager<ApplicationUser> userManager, IHttpContextAccessor httpContextAccessor)
+	private readonly JWT _jwt;
+	private readonly IRefreshTokenRepo _refreshTokenRepo;
+	public TokenService(IConfiguration configuration, UserManager<ApplicationUser> userManager, IHttpContextAccessor httpContextAccessor,
+		JWT jwt, IRefreshTokenRepo refreshTokenRepo)
 	{
 		_configuration = configuration;
 		_userManager = userManager;
 		_httpContextAccessor = httpContextAccessor;
+		_jwt = jwt;
+		_refreshTokenRepo = refreshTokenRepo;
 	}
 	public JwtSecurityToken CreateToken(List<Claim> claims, DateTime expireationTime)
 	{
@@ -70,7 +77,7 @@ public class TokenService : ITokenService
 		return DateTimeOffset.UtcNow >= expireTime;
 	}
 
-	public async Task<string> CreateLoginToken(ApplicationUser user)
+	public async Task<string> CreateAccessTokenAsync(ApplicationUser user)
 	{
 		//> get user claims from database
 		var userClaims = await _userManager.GetClaimsAsync(user);
@@ -81,25 +88,117 @@ public class TokenService : ITokenService
 		userClaims.Add(new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()));
 
 		//> generate the token by claims
-		var generateToken = CreateToken(userClaims.ToList(), DateTime.Now.AddDays(2));
+		var generateToken = CreateToken(userClaims.ToList(), DateTime.Now.AddMinutes(int.Parse(_jwt.TokenExpirePerMin ?? "5")));
 		return new JwtSecurityTokenHandler().WriteToken(generateToken);
 	}
 
-	public int SaveTokenInCookie(string token, string id)
+	public int SaveTokenInCookie(string token, DateTime expiration)
 	{
 		//> get HttpContext from the Service
 		var httpContext = _httpContextAccessor.HttpContext;
 		if(httpContext is null) return -1;
+		
 
+		//> create secure cookie
 		var cookieOption = new CookieOptions
 		{
-			//> make expiration of cookie match the expiration of token
-			Expires = GetExpirationTimeOfToken(token)
+			Expires = expiration,
+			HttpOnly = true,
+			Secure = true,
+			SameSite = SameSiteMode.None,
+			IsEssential = true,
 		};
 
-		var spliceId = Helper.GetFirstFiveChardsFromId(id);
-
-		httpContext.Response.Cookies.Append($"loginToken-{spliceId}", token, cookieOption);
+		httpContext.Response.Cookies.Append($"refreshToken", token, cookieOption);
 		return 0;
 	}
+
+    public RefreshTokenDto GenerateRefreshToken()
+    {
+		byte[] randomNumbers = new byte[32];
+		using var generator = new RNGCryptoServiceProvider();
+
+		generator.GetBytes(randomNumbers);
+
+		return new RefreshTokenDto
+		{
+			CreatedOn = DateTime.Now,
+			ExpiresOn = DateTime.Now.AddDays(int.Parse(_jwt.TokenExpirePerDay)),
+			Token = Convert.ToBase64String(randomNumbers)
+		};
+    }
+
+    public async Task<CommonResponse> RefreshToken()
+    {
+		var httpContext = _httpContextAccessor.HttpContext;
+		var refreshToken = httpContext?.Request.Cookies["refreshToken"];
+
+		if(refreshToken is null)
+		{
+			return new CommonResponse("there is no token to refresh..!!", false);
+		}
+
+		var refreshTokenModel = await _refreshTokenRepo.GetTokenAsync(refreshToken);
+		if (!refreshTokenModel.IsActive)
+		{
+			return new CommonResponse("Invalid token..!!", false);
+		}
+
+		refreshTokenModel.RevokedOn = DateTime.UtcNow;
+		var newToken = GenerateRefreshToken();
+		var newRefreshToken = new RefreshToken
+		{
+			RevokedOn = null,
+			ExpiresOn = newToken.ExpiresOn,
+			Id = Guid.NewGuid(),
+			CreatedOn = newToken.CreatedOn,
+			Token = newToken.Token,
+			UserId = refreshTokenModel.UserId
+		};
+
+		await _refreshTokenRepo.CreateAsync(newRefreshToken);
+
+		var saved = SaveTokenInCookie(newRefreshToken.Token, newRefreshToken.ExpiresOn);
+		if(saved == 0)
+		{
+			var user =  await _userManager.FindByIdAsync(refreshTokenModel.UserId);
+			var accessToken = await CreateAccessTokenAsync(user);
+
+			var token = new AccessToken(accessToken, GetExpirationTimeOfToken(accessToken));
+			return new CommonResponse("token refreshed", true, null!, token);
+		}
+		return new CommonResponse("token refreshed but cannot saved it in cookie..!", true);
+    }
+
+    public async Task<CommonResponse> RevokeRefreshTokenAsync(string token)
+    {
+        var httpContext = _httpContextAccessor.HttpContext;
+        var tokenFromCookie = httpContext?.Request.Cookies["refreshToken"];
+
+		var refreshToken = token ?? tokenFromCookie;
+
+        if (refreshToken is null)
+        {
+            return new CommonResponse("there is no token to refresh..!!", false);
+        }
+
+        var refreshTokenModel = await _refreshTokenRepo.GetTokenAsync(refreshToken);
+
+		if (refreshTokenModel is null)
+		{
+			return new CommonResponse("Token Invalid..!!", false);
+		}
+
+        if (!refreshTokenModel.IsActive)
+        {
+            return new CommonResponse("Invalid token..!!", false);
+        }
+
+		refreshTokenModel.RevokedOn = DateTime.Now;
+		_refreshTokenRepo.Update(refreshTokenModel);
+
+		httpContext?.Response.Cookies.Delete("refreshToken");
+
+		return new CommonResponse("refresh token revoked..!!", true);
+    }
 }

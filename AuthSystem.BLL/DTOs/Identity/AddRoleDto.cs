@@ -1,4 +1,4 @@
-﻿namespace E_Commerce.BLL.DTOs;
+﻿namespace AuthSystem.BLL.DTOs;
 
 public class AddRoleDto
 {

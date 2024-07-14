@@ -1,5 +1,5 @@
 ﻿
-namespace E_Commerce.API.Controllers;
+namespace AuthSystem.API.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]

@@ -3,9 +3,10 @@
 
 using MimeKit;
 using MailKit.Net.Smtp;
+using AuthSystem.BLL.Settings;
 
 
-namespace E_Commerce.BLL.Services;
+namespace AuthSystem.BLL.Services;
 
 public class EmailService : IEmailService
 {

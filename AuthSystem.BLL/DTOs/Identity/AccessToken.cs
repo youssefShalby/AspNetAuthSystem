@@ -1,10 +1,10 @@
-﻿namespace E_Commerce.BLL.DTOs;
+﻿namespace AuthSystem.BLL.DTOs;
 
-public class TokenDto
+public class AccessToken
 {
     public string Token { get; set; } = string.Empty;
     public DateTime ExpirationTime { get; set; }
-    public TokenDto(string token, DateTime expireTime)
+    public AccessToken(string token, DateTime expireTime)
     {
         Token = token;
         ExpirationTime = expireTime;

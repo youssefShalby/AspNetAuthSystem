@@ -1,6 +1,6 @@
 ﻿
 
-namespace E_Commerce.DAL.CustomValidation;
+namespace AuthSystem.DAL.CustomValidation;
 
 public class UniqueAttribute : ValidationAttribute
 {

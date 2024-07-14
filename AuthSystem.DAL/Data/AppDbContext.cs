@@ -1,5 +1,5 @@
 ﻿
-namespace E_Commerce.DAL.Data;
+namespace AuthSystem.DAL.Data;
 
 public class AppDbContext : IdentityDbContext<ApplicationUser>
 {
@@ -8,7 +8,9 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
 		//> pass the options to the base class(IdentityDbContext)
 	}
 
-	protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+	public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
 	{
 		base.OnConfiguring(optionsBuilder);
 

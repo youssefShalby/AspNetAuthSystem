@@ -1,5 +1,6 @@
 ﻿
-namespace E_Commerce.DAL.DomainModels;
+namespace AuthSystem.DAL.DomainModels;
+
 public class ApplicationUser:IdentityUser
 {
     public string FullName { get; set; } = string.Empty;
@@ -7,6 +8,8 @@ public class ApplicationUser:IdentityUser
     public string? Address { get; set; } = string.Empty;
     public string? ConfirmEmailCode { get; set; } = string.Empty;
 
+    public ICollection<RefreshToken>? RefreshTokens { get; set; }
+
     //> navigation properties in the child class(Customer)
-    
+
 }

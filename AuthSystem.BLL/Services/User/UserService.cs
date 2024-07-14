@@ -1,6 +1,5 @@
 ﻿
-
-namespace E_Commerce.BLL.Services;
+namespace AuthSystem.BLL.Services;
 
 public class UserService : IUserService
 {
@@ -8,11 +7,13 @@ public class UserService : IUserService
 	private readonly UserManager<ApplicationUser> _userManager;
 	private readonly IHandlerService _handlerService;
 	private readonly ITokenService _tokenService;
+	private readonly IRefreshTokenService _refreshTokenService;
 	private readonly SignInManager<ApplicationUser> _signInManager;
 	private readonly IConfiguration _configuration;
 	private readonly IEmailService _emailService;
 	private readonly IHttpContextAccessor _httpContextAccessor;
-    public UserService(RoleManager<IdentityRole> roleManager, UserManager<ApplicationUser> userManager, IHandlerService handlerService, ITokenService tokenService, SignInManager<ApplicationUser> signInManager, IConfiguration configuration, IEmailService emailService, IHttpContextAccessor httpContextAccessor)
+	private readonly IRefreshTokenRepo _refreshTokenRepo;
+    public UserService(RoleManager<IdentityRole> roleManager, UserManager<ApplicationUser> userManager, IHandlerService handlerService, ITokenService tokenService, SignInManager<ApplicationUser> signInManager, IConfiguration configuration, IEmailService emailService, IHttpContextAccessor httpContextAccessor, IRefreshTokenService refreshTokenService, IRefreshTokenRepo refreshTokenRepo)
     {
 		_roleManager = roleManager;
 		_userManager = userManager;
@@ -22,6 +23,8 @@ public class UserService : IUserService
 		_configuration = configuration;
 		_emailService = emailService;
 		_httpContextAccessor = httpContextAccessor;
+		_refreshTokenService = refreshTokenService;
+		_refreshTokenRepo = refreshTokenRepo;
     }
 
 	public async Task<CommonResponse> RegisterAsync(RegisterUserDto model)
@@ -81,26 +84,46 @@ public class UserService : IUserService
 		user.ConfirmEmailCode = null!;
 		await _userManager.UpdateAsync(user);
 
+
+
 		//> then, create login token and save it in the cookie after email confirmation process to make user loged in
-		string loginToken = await _tokenService.CreateLoginToken(user);
-		if(loginToken == "NA")
+		string accessToken = await _tokenService.CreateAccessTokenAsync(user);
+		if(accessToken == "NA")
 		{
-			return new CommonResponse("email confirmed success, but cannot loging you in automatically, you can login now", true);
+			return new CommonResponse("cannot create access token", true);
+		}
+
+		var refreshToken = _refreshTokenService.GenerateRefreshToken();
+		var newRefToken = new RefreshToken
+		{
+			Id = Guid.NewGuid(),
+			UserId = user.Id,
+			CreatedOn = refreshToken.CreatedOn,
+			RevokedOn = refreshToken.RevokedOn,
+			Token  = refreshToken.Token,
+			ExpiresOn = refreshToken.ExpiresOn,
+		};
+
+		bool created = await _refreshTokenRepo.CreateAsync(newRefToken);
+		if (!created)
+		{
+			return new CommonResponse("cannot create refresh token", true);
 		}
 
 		//> save login token in the cookie
-		int added = _tokenService.SaveTokenInCookie(loginToken, user.Id);
+		int added = _refreshTokenService.SaveTokenInCookie(refreshToken.Token, refreshToken.ExpiresOn);
 		if(added == -1)
 		{
-			return new CommonResponse("email confirmed success, but cannot loging you in automatically, you can login now", true);
+			return new CommonResponse("cannot save refresh token in cookie", true);
 		}
-		return new CommonResponse("User Confirmed Successfully, and logged in now", true);
+
+		AccessToken JWTAccessToken = new AccessToken(accessToken, _tokenService.GetExpirationTimeOfToken(accessToken));
+
+		return new CommonResponse("User Confirmed Successfully, and logged in now", true, null!, JWTAccessToken);
 	}
 
 	public async Task<CommonResponse> LoginAsync(LoginDto model)
 	{
-		
-
 		//> check email is true and exist
 		ApplicationUser user = await _userManager.FindByEmailAsync(model.Email);
 		if(user is null)
@@ -110,8 +133,7 @@ public class UserService : IUserService
 
 		//> check if there is login token in cookie or not
 		var httpContext = _httpContextAccessor.HttpContext;
-		var spliceId = Helper.GetFirstFiveChardsFromId(user.Id);
-		var checkLoginToken = httpContext?.Request.Cookies.FirstOrDefault(TK => TK.Key == $"loginToken-{spliceId}");
+		var checkLoginToken = httpContext?.Request.Cookies.FirstOrDefault(TK => TK.Key == $"refreshToken");
 		if (checkLoginToken?.Value is not null)
 		{
 			return new CommonResponse("user already loged in", false);
@@ -140,18 +162,38 @@ public class UserService : IUserService
 		}
 
 		//> if email and password are correct, create the token
-		string token = await _tokenService.CreateLoginToken(user);
-		DateTime expireTime = _tokenService.GetExpirationTimeOfToken(token);
+		string accessToken = await _tokenService.CreateAccessTokenAsync(user);
 
-		//> save the token in the cookie
-		int added = _tokenService.SaveTokenInCookie(token, user.Id);
+		RefreshToken refreshToken = new();
+		if (_refreshTokenRepo.IsUserHaveActiveRefreshTokenAsync(user.Id))
+		{
+			refreshToken = await _refreshTokenRepo.GetActiveTokenForUserAsync(user.Id);
+		}
+		else
+		{
+			var refreshTokenDto = _refreshTokenService.GenerateRefreshToken();
+			refreshToken = new RefreshToken
+			{
+				CreatedOn = refreshTokenDto.CreatedOn,
+				ExpiresOn = refreshTokenDto.ExpiresOn,
+				Id = Guid.NewGuid(),
+				UserId = user.Id,
+				Token = refreshTokenDto.Token,
+				RevokedOn = refreshTokenDto.RevokedOn,
+			};
+
+			await _refreshTokenRepo.CreateAsync(refreshToken);
+
+		}
+
+		int added = _refreshTokenService.SaveTokenInCookie(refreshToken.Token, refreshToken.ExpiresOn);
 		if(added == -1)
 		{
-			return new CommonResponse("login success, but cannot save data in your browser for now", true);
+			return new CommonResponse("login success, but cannot save refresh token in cookies", true);
 		}
 
 		//> return the token with expiration time
-		var tokenResponse = new TokenDto(token, expireTime);
+		var tokenResponse = new AccessToken(accessToken, _tokenService.GetExpirationTimeOfToken(accessToken));
 		return new CommonResponse("Login Success", true, null!, tokenResponse);
 	}
 
@@ -213,7 +255,7 @@ public class UserService : IUserService
 
 		//> delete the loginToken
 		var httpContext = _httpContextAccessor.HttpContext;
-		httpContext?.Response.Cookies.Delete("loginToken");
+		httpContext?.Response.Cookies.Delete("refreshToken");
 
 		return new CommonResponse("Signed out success", true);
 	}

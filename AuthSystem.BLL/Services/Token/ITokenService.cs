@@ -1,7 +1,7 @@
 ﻿
 
 
-namespace E_Commerce.BLL.Services;
+namespace AuthSystem.BLL.Services;
 
 public interface ITokenService
 {
@@ -13,6 +13,6 @@ public interface ITokenService
 	string ExtractClaimFromToken(string token, string tokenClaim);
 	DateTime GetExpirationTimeOfToken(string token);
 	bool IsTokenExpired(string token);
-	Task<string> CreateLoginToken(ApplicationUser user);
-	int SaveTokenInCookie(string token, string id);
+	Task<string> CreateAccessTokenAsync(ApplicationUser user);
+	
 }
